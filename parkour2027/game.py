@@ -1,4 +1,8 @@
 import pygame 
+from physicEngine.elements import Bone,Vector2D
+
+import Utils.UColors as uC
+
 
 class Game:
     '''A class to represent the game.'''
@@ -11,6 +15,7 @@ class Game:
         self.ticks = ticks
 
         self.screen = pygame.display.set_mode((self.width, self.height))
+        print(type(self.screen))
 
         pygame.display.set_caption("Parkour 2027")
 
@@ -20,7 +25,8 @@ class Game:
     def run(self):
         '''Run the game loop.'''
         while self.running:
-            self.handle_exit()
+
+            self.handle_event()
             self.draw()
 
             self.clock.tick(self.ticks)
@@ -28,10 +34,17 @@ class Game:
     def draw(self):
         '''Draw the game screen.'''
         self.screen.fill((0, 0, 0))
+
+        v1 = Vector2D(200,200)
+        v2 = Vector2D(300,100)
+        b = Bone(v1,v2,50,uC.BLUE)
+        b.draw(self.screen)
+
         pygame.display.flip()
 
-    def handle_exit(self):
+    def handle_event(self):
         '''Handle the exit event.'''
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
                 self.running = False

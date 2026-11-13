@@ -16,7 +16,7 @@ A faire **SYSTEMATIQUEMENT**:
 
 > git add NOM_DU_FICHIER
 
-Cela permet de spécifié le fichier qui va être commit
+Cela permet de spécifier le fichier qui va être commit
 
 > git commit -m "MESSAGE"
 
@@ -34,7 +34,7 @@ A faire à chaque fois avant de commencer à travailler
 
 ## Changer de branche
 
-> git switch NOM_BRANCHE
+> git switch -c NOM_BRANCHE
 
 A utiliser systématiquement en développant 
 
