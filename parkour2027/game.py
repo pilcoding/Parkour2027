@@ -1,5 +1,6 @@
 import pygame 
 
+
 class Game:
     '''A class to represent the game.'''
 
@@ -20,7 +21,8 @@ class Game:
     def run(self):
         '''Run the game loop.'''
         while self.running:
-            self.handle_exit()
+
+            self.handle_event()
             self.draw()
 
             self.clock.tick(self.ticks)
@@ -30,8 +32,10 @@ class Game:
         self.screen.fill((0, 0, 0))
         pygame.display.flip()
 
-    def handle_exit(self):
+    def handle_event(self):
         '''Handle the exit event.'''
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
                 self.running = False
+                

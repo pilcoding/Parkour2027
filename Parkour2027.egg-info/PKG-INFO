@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: Parkour2027
+Version: 1.0
+Summary: robot fil de fer en apprentissage par renforcement
+Author: Titouan Leveugle
+Requires-Python: <3.14,>=3.8
+Description-Content-Type: "text/markdown"
+Requires-Dist: pygame
+
+# Parkour2027
+
+Python version: 3.13.0
+
+## Dependencies
+
+Librairies:
+
+- PyGame
