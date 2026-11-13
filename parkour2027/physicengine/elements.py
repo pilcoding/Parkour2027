@@ -1,13 +1,18 @@
 import numpy as np
 from typing import Union
 import numbers
+import pygame
+import math
+
+import Utils.UFunc as uF
+import Utils.UColors as uC
 
 class Vector2D:
     """
     Class that represents a two-dimensional vector.
     """
 
-    def __init__(self, x: int, y: int):
+    def __init__(self, x: float, y: float):
         """
         Initialize the Vector2D object.
 
@@ -24,6 +29,10 @@ class Vector2D:
         """
         self._x = x
         self._y = y
+
+    @classmethod
+    def from_list(self, coordinates: list):
+        return Vector2D(coordinates[0],coordinates[1])
 
     @property
     def x(self):
@@ -152,7 +161,7 @@ class Vector2D:
         """
         return self._x == other._x and self._y == other._y
 
-    def __add__(self, other: Union[list[int], "Vector2D"]):
+    def __add__(self, other: Union[list[float], "Vector2D"]):
         """
         Add another vector or a list of coordinates to the vector.
 
@@ -171,7 +180,7 @@ class Vector2D:
         else:
             return Vector2D(self._x + other._x, self._y + other._y)
 
-    def __sub__(self, other: Union[list[int], "Vector2D"]):
+    def __sub__(self, other: Union[list[float], "Vector2D"]):
         """
         Subtract another vector or a list of coordinates.
 
@@ -191,7 +200,7 @@ class Vector2D:
         else:
             return Vector2D(self._x - other._x, self._y - other._y)
 
-    def __mul__(self, other: Union[list[int], "Vector2D", numbers.Real]):
+    def __mul__(self, other: Union[list[float], "Vector2D", numbers.Real]):
         """
         Multiply the vector by another vector, a list of coordinates,
         or a real number.
@@ -215,7 +224,7 @@ class Vector2D:
         else:
             return Vector2D(self._x * other._x, self._y * other._y)
 
-    def __iadd__(self, other: Union[list[int], "Vector2D"]):
+    def __iadd__(self, other: Union[list[float], "Vector2D"]):
         """
         Implement the in-place addition operator +=.
 
@@ -247,7 +256,7 @@ class Vector2D:
         """
         return np.sqrt(self._x**2 + self._y**2)
 
-    def __radd__(self, other: Union[list[int], "Vector2D"]):
+    def __radd__(self, other: Union[list[float], "Vector2D"]):
         """
         Implement reflected addition when the vector is the
         right-hand operand of the + operator.
@@ -264,7 +273,7 @@ class Vector2D:
         """
         return self.__add__(other)
 
-    def __rsub__(self, other: Union[list[int], "Vector2D"]):
+    def __rsub__(self, other: Union[list[float], "Vector2D"]):
         """
         Implement reflected subtraction when the vector is the
         right-hand operand of the - operator.
@@ -299,3 +308,80 @@ class Vector2D:
             A new vector with both coordinates negated.
         """
         return Vector2D(-self._x, -self._y)
+
+    def relative_angle(self,other):
+        if other._x == self._x:
+            if self._y <= other._y: 
+                return np.pi/2
+            else:
+                return -np.pi/2
+        return math.atan((other._y-self._y)/(other._x-self._x))
+
+#--------------------------------------------------------------#
+
+class Bone:
+    """"
+        Class that represents a bone based on two vectors and a width
+    """
+    
+    def __init__(self, top: "Vector2D", bottom: "Vector2D", width: float, color = uC.WHITE):
+        """
+        Initialize the bone object.
+        """
+        self._top = top
+        self._bottom = bottom
+        self._width = width
+        self.color = color
+
+    @property
+    def top(self):
+            return self._top
+    
+    @property
+    def bottom(self):
+            return self._bottom
+
+    @property
+    def width(self):
+        return self._width
+    
+    @top.setter
+    def top(self, vector: Union[list[float],"Vector2D"]):
+        if isinstance(vector, "Vector2D"):
+            self._top = vector
+        else:
+            self._top = Vector2D(vector)
+
+    @bottom.setter
+    def bottom(self, vector: Union[list[float],"Vector2D"]):
+        if isinstance(vector, "Vector2D"):
+            self._bottom = vector
+        else:
+            self._bottom = Vector2D(vector)
+
+    @width.setter
+    def width(self, width: float):
+        if isinstance(width, numbers.Real):
+            self._width = width
+
+    def __repr__(self):
+        return f"{self._top},{self._bottom},{self._width}"
+
+    def __str__(self):
+        return f"Bone: top = {self._top}, bottom = {self._bottom}, width = {self._width}"
+
+    def draw(self, screen: pygame.surface.Surface):
+        """
+            Draw in the pygame screen the bone.
+        """
+
+        pygame.draw.circle(screen,self.color,(self._top.x,self._top.y),self._width/2)
+        pygame.draw.circle(screen,self.color,(self._bottom.x,self._bottom.y),self._width/2)
+
+        angle = self._top.relative_angle(self._bottom)+np.pi/2
+
+        pygame.draw.polygon(screen,self.color,[(self._top.x - math.cos(angle)*self._width/2,self._top.y- math.sin(angle)*self._width/2),
+                                                (self._top.x + math.cos(angle)*self._width/2,self._top.y+ math.sin(angle)*self._width/2),
+                                                (self._bottom.x + math.cos(angle)*self._width/2,self._bottom.y+ math.sin(angle)*self._width/2),
+                                                (self._bottom.x - math.cos(angle)*self._width/2,self._bottom.y- math.sin(angle)*self._width/2)])
+    
