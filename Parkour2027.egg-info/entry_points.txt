@@ -1,2 +1,0 @@
-[console_scripts]
-parkour = parkour2027.__main__:main
