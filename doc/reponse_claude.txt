@@ -1,0 +1,137 @@
+# Physique du code : ragdoll à contraintes (type « Sequential Impulses »)
+
+**Réponse courte : il traite les membres 2 à 2, pas le corps entier.** Chaque `Joint` relie deux corps (A, B) et est résolu isolément. Le corps « global » émerge de la répétition (15 itérations) sur toutes les articulations. C'est le principe de **Gauss-Seidel / Projected Gauss-Seidel** (Erin Catto, Box2D).
+
+---
+
+## 1. Dynamique d'un corps rigide (`Bone`, `step`)
+
+**Gravité + intégration d'Euler semi-implicite**
+- v ← v + g·dt, avec g = (0, −9.81, 0)
+- x ← x + v·dt
+
+**Amortissement (drag linéaire implicite)**
+- v ← v / (1 + c·dt), c = 0,5
+
+**Orientation par quaternion** (équation cinématique du quaternion)
+- q̇ = ½ · ω_q · q, avec ω_q = (0, ωx, ωy, ωz)
+- q ← normalize(q + ½·dt·ω_q·q)
+
+**Tenseur d'inertie** (dans le constructeur)
+- Boîte (shape 1), de côtés f = 2·dims :
+ Ixx = m/12 · (fy² + fz²), etc.
+- Capsule (approx. cylindre) de longueur L, rayon r :
+ I_axe = ½·m·r²
+ I_côté = m/12 · (3r² + L²)
+
+**Inertie inverse dans le repère monde** (loi de transformation)
+- I⁻¹_monde = R · I⁻¹_corps · Rᵀ
+
+---
+
+## 2. Contrainte d'articulation (`Joint::solve`)
+
+C'est le cœur : une **rotule (ball-and-socket)** entre A et B.
+
+**Contrainte de position** : les deux points d'ancrage doivent coïncider
+- C = (x_B + r_B) − (x_A + r_A) = 0
+
+**Contrainte de vitesse** (dérivée de C)
+- Ċ = v_B + ω_B × r_B − v_A − ω_A × r_A = 0
+
+**Stabilisation de Baumgarte** (corrige la dérive de position)
+- Ċ_corrigé = Ċ + (β/dt)·C, avec β = 0,2
+
+**Matrice de masse effective K** (3×3)
+- K = (1/m_A + 1/m_B)·I₃ − [r_A]ₓ · I⁻¹_A · [r_A]ₓ − [r_B]ₓ · I⁻¹_B · [r_B]ₓ
+- où [r]ₓ est la **matrice antisymétrique du produit vectoriel** (`crossMatrix`)
+
+**Impulsion** à appliquer
+- P = −K⁻¹ · Ċ_corrigé
+
+**Application (conservation de la quantité de mouvement)**
+- v_A −= P/m_A, v_B += P/m_B
+- ω_A −= I⁻¹_A (r_A × P), ω_B += I⁻¹_B (r_B × P)
+
+C'est une loi de **Newton 3** : impulsion égale et opposée sur A et B.
+
+---
+
+## 3. Moteur d'articulation (`Joint::applyTorque`) : contrôleur PD
+
+Les muscles sont modélisés par un **contrôleur Proportionnel-Dérivé** (ressort-amortisseur angulaire) vers un angle cible.
+
+**Erreur d'orientation** (différence de quaternions → axe-angle)
+- q_err = q_cible · q_relatif⁻¹
+- angle θ = 2·atan2(‖v‖, w), erreur = θ · axe, passée dans le repère monde
+
+**Couple PD**
+- τ = Kp · e − Kd · (ω_B − ω_A)
+- Kp = stiffness · maxTorque, Kd = Kp/50
+
+**Saturation** : si ‖τ‖ > τ_max, alors τ ← τ_max · τ/‖τ‖
+
+**Impulsion angulaire** (théorème du moment cinétique : ΔL = τ·dt)
+- Δω_B = +I⁻¹_B · τ·dt, Δω_A = −I⁻¹_A · τ·dt (réaction)
+
+---
+
+## 4. Collision avec le sol (`floorCollision`)
+
+Normale n = (0,1,0), points de contact = 8 coins (boîte) ou 2 extrémités + rayon (capsule).
+
+**Pénétration**
+- d = r − y_contact
+
+**Vitesse du point de contact** (cinématique du solide rigide)
+- v_c = v + ω × r_w
+
+**Masse effective le long de la normale**
+- m_eff⁻¹ = 1/m + n · ((I⁻¹(r_w × n)) × r_w)
+
+**Impulsion normale** (avec restitution e = 0)
+- j_n = −(1+e)·v_n / m_eff⁻¹
+- **Accumulation et clamp ≥ 0** : le sol ne peut que pousser (contrainte unilatérale / conditions de **Signorini**, principe du Projected Gauss-Seidel)
+
+**Frottement de Coulomb**
+- ‖j_t‖ ≤ μ · j_n, avec μ = 1,2
+- Ici le budget est plancher à μ·m·g·dt (impulsion de soutien de la gravité)
+
+**Correction de position** (de type Baumgarte / « penetration slop »)
+- x += n · 0,4 · max(d − 0,01, 0)
+
+---
+
+## 5. Cinématique directe (mode ANIMATE, `updateKinematics`)
+
+**Forward Kinematics** : pas de physique.
+- q_B = q_A · q_cible
+- x_B = (x_A + q_A·anchor_A) − q_B·anchor_B
+
+**Interpolation entre keyframes** : spline de **Catmull-Rom**
+- p(t) = ½ · [2p₁ + (−p₀+p₂)t + (2p₀−5p₁+4p₂−p₃)t² + (−p₀+3p₁−3p₂+p₃)t³]
+
+**Vitesses angulaires de référence** (différences finies)
+- ω ≈ (θ_t − θ_{t−1}) / dt
+- Vitesse COM par différence centrée : v ≈ (c(t+dt) − c(t−dt)) / (2dt)
+
+**Centre de masse**
+- COM = Σ mᵢ·xᵢ / Σ mᵢ
+
+---
+
+## 6. Structure de la résolution
+
+```
+pour chaque pas (40 sous-pas par frame):
+    gravité + amortissement
+    pour 15 itérations (aller, puis retour alterné):
+        pour chaque joint (2 corps à la fois):
+            solve()        ← contrainte rotule
+            applyTorque()  ← moteur PD
+    intégration + collision sol
+```
+
+L'alternance sens normal / sens inverse (`i % 2`) réduit le biais d'ordre de Gauss-Seidel. Les **sous-pas (40)** rendent la simulation plus stable (technique de **substepping**), et plus raide les ressorts PD sans explosion.
+
+**En résumé :** résolution locale par paires, mais comme les corps partagent des articulations, les itérations propagent l'information le long de la chaîne (pelvis → cuisse → mollet → pied), ce qui donne un comportement global cohérent. Ce n'est pas un solveur global (type matrice complète / LCP exact), d'où la nécessité de beaucoup d'itérations.
