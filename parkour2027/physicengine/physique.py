@@ -106,7 +106,7 @@ color_ground = pygame.Color(50,50,50)
 
 #Conditions initiales
 dX0, dY0 = 0.0, -10.0
-dtheta_st0, dtheta_sw0 = 1.0, 0.0
+dtheta_st0, dtheta_sw0 = 10.0, 0.0
 
 # sol = (X, Y, θst, θsw, dX, dY, dθst, dθsw)   (X, Y = hanche en mètres)
 sol0 = np.array([start_position_bar1.x / meter_into_px, start_position_bar1.y / meter_into_px,
@@ -124,7 +124,7 @@ print( f"solution : {len(solution.y)}")
 sol = solution.y
 
 xh, yh = sol[0], sol[1]
-theta_st, theta_sw = sol[3], sol[4]
+theta_st, theta_sw = sol[2], sol[3]
 
 frame=0
 
